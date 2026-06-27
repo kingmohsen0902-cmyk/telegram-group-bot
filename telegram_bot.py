@@ -172,12 +172,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await msg.reply_text(answer)
                 message_history.append({"sender": "bot", "text": answer})
                 save_memory()
-        return  # عکس‌ها وارد چرخه‌ی متنی نمی‌شوند
+        return
 
     if not text:
         return
 
-    # ذخیره در حافظه‌ی متنی
+    # ذخیره در حافظه‌ی متنی (همیشه، حتی قبل از رسیدن به آستانه)
     message_history.append({"sender": sender, "text": text})
     all_messages_count += 1
     save_memory()
@@ -187,11 +187,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "text": text,
     }
 
-    if all_messages_count < MIN_MESSAGES_BEFORE_REPLY:
-        log.info(f"در حال یادگیری... ({all_messages_count}/{MIN_MESSAGES_BEFORE_REPLY})")
-        return
-
-    # --- حالت ۲: درخواست ساخت عکس ---
+    # --- حالت ۲: درخواست ساخت عکس (همیشه فعال، حتی قبل از آستانه) ---
     image_match = IMAGE_GEN_PATTERN.search(text)
     if image_match:
         prompt = image_match.group(1).strip()
@@ -200,7 +196,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             last_messages_per_chat.pop(chat_id, None)
             return
 
-    # --- حالت ۳: اسمش صدا زده شده، یا ریپلای به خودش ---
+    # --- حالت ۳: اسمش صدا زده شده، یا ریپلای به خودش (همیشه فعال) ---
     name_mentioned = bool(BOT_NAME_PATTERN.search(text))
     is_reply_to_bot = (
         msg.reply_to_message is not None
@@ -218,6 +214,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message_history.append({"sender": "bot", "text": reply_text})
             save_memory()
             last_messages_per_chat.pop(chat_id, None)
+        return
+
+    # --- حالت ۴: پیام عادی -> فقط برای ریپلای دوره‌ای صبر کن تا آستانه برسه ---
+    if all_messages_count < MIN_MESSAGES_BEFORE_REPLY:
+        log.info(f"در حال یادگیری... ({all_messages_count}/{MIN_MESSAGES_BEFORE_REPLY})")
 
 
 async def periodic_reply_job(context: ContextTypes.DEFAULT_TYPE):
